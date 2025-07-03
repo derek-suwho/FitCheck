@@ -1,7 +1,10 @@
 import React, {useState, useEffect} from 'react';
-import {View, Text, StyleSheet, TouchableOpacity, Image} from 'react-native';
+import {View, Text, StyleSheet, TouchableOpacity, Image, Dimensions} from 'react-native';
 import {StorageService} from '../services/StorageService';
 import {Outfit} from '../types';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../theme';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 interface OutfitCardProps {
   item: Outfit;
@@ -20,34 +23,81 @@ const OutfitCard: React.FC<OutfitCardProps> = ({item, onPress, onWear, onDelete}
       }
     });
   }, [item.id]);
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const getWearCountText = (count: number) => {
+    if (count === 0) return 'Never worn';
+    if (count === 1) return 'Worn once';
+    return `Worn ${count} times`;
+  };
   
   return (
-    <TouchableOpacity style={styles.outfitCard} onPress={onPress}>
-      <Image 
-        source={{uri: `file://${thumbnailPath}`}} 
-        style={styles.outfitImage}
-        resizeMode="cover"
-      />
-      <Text style={styles.outfitTitle}>{item.title}</Text>
-      <Text style={styles.outfitDate}>
-        {new Date(item.date).toLocaleDateString()}
-      </Text>
-      <Text style={styles.wearCount}>
-        Worn {item.wearCount} times
-      </Text>
+    <TouchableOpacity 
+      style={styles.outfitCard} 
+      onPress={onPress}
+      activeOpacity={0.9}
+    >
+      <View style={styles.imageContainer}>
+        <Image 
+          source={{uri: `file://${thumbnailPath}`}} 
+          style={styles.outfitImage}
+          resizeMode="cover"
+        />
+        <View style={styles.imageOverlay}>
+          <View style={styles.wearCountBadge}>
+            <Text style={styles.wearCountText}>{item.wearCount}</Text>
+          </View>
+        </View>
+      </View>
       
-      <View style={styles.buttonRow}>
+      <View style={styles.cardContent}>
+        <Text style={styles.outfitTitle} numberOfLines={1}>
+          {item.title}
+        </Text>
+        <Text style={styles.outfitDate}>
+          {formatDate(item.date)}
+        </Text>
+        <Text style={styles.wearCountDescription}>
+          {getWearCountText(item.wearCount)}
+        </Text>
+        
+        {/* AI Analysis Tags */}
+        {item.aiAnalysis?.clothingItems && item.aiAnalysis.clothingItems.length > 0 && (
+          <View style={styles.tagsContainer}>
+            {item.aiAnalysis.clothingItems.slice(0, 2).map((clothing, index) => (
+              <View key={index} style={styles.tag}>
+                <Text style={styles.tagText}>{clothing.type}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+      
+      <View style={styles.actionsRow}>
         <TouchableOpacity 
           style={styles.wearButton}
           onPress={onWear}
+          activeOpacity={0.8}
         >
-          <Text style={styles.buttonText}>👔 Wear</Text>
+          <Text style={styles.wearButtonText}>👔</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.deleteButton}
           onPress={onDelete}
+          activeOpacity={0.8}
         >
-          <Text style={styles.buttonText}>🗑️</Text>
+          <Text style={styles.deleteButtonText}>🗑️</Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -56,64 +106,111 @@ const OutfitCard: React.FC<OutfitCardProps> = ({item, onPress, onWear, onDelete}
 
 const styles = StyleSheet.create({
   outfitCard: {
-    flex: 1,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 12,
-    margin: 6,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    margin: Spacing.sm,
+    overflow: 'hidden',
+    ...Shadows.md,
+  },
+  imageContainer: {
+    position: 'relative',
   },
   outfitImage: {
-    height: 160,
-    borderRadius: 8,
-    marginBottom: 8,
-    backgroundColor: '#f0f0f0',
+    width: '100%',
+    height: 200,
+    backgroundColor: Colors.background,
   },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
+  imageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
   },
-  wearButton: {
-    backgroundColor: '#34C759',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    flex: 1,
-    marginRight: 4,
-  },
-  deleteButton: {
-    backgroundColor: '#FF3B30',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    minWidth: 40,
+  wearCountBadge: {
+    position: 'absolute',
+    top: Spacing.sm,
+    right: Spacing.sm,
+    backgroundColor: Colors.glass,
+    borderRadius: BorderRadius.full,
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
     alignItems: 'center',
+    backdropFilter: 'blur(10px)',
   },
-  buttonText: {
-    color: 'white',
-    fontSize: 12,
+  wearCountText: {
+    ...Typography.styles.caption,
+    color: Colors.surface,
     fontWeight: '600',
-    textAlign: 'center',
   },
-  wearCount: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 2,
+  cardContent: {
+    padding: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
   outfitTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
+    ...Typography.styles.h4,
+    color: Colors.text,
+    marginBottom: Spacing.xs,
   },
   outfitDate: {
-    fontSize: 14,
-    color: '#666',
+    ...Typography.styles.bodySmall,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs,
+  },
+  wearCountDescription: {
+    ...Typography.styles.caption,
+    color: Colors.textTertiary,
+    marginBottom: Spacing.sm,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  tag: {
+    backgroundColor: Colors.background,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    marginRight: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  tagText: {
+    ...Typography.styles.caption,
+    color: Colors.primary,
+    fontWeight: '500',
+    textTransform: 'capitalize',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+    justifyContent: 'space-between',
+  },
+  wearButton: {
+    backgroundColor: Colors.success,
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Shadows.sm,
+  },
+  wearButtonText: {
+    fontSize: 18,
+  },
+  deleteButton: {
+    backgroundColor: Colors.error,
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Shadows.sm,
+  },
+  deleteButtonText: {
+    fontSize: 16,
   },
 });
 

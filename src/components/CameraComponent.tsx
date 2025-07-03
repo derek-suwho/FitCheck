@@ -6,47 +6,63 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
-import {Camera, useCameraDevices} from 'react-native-vision-camera';
+import {Camera, useCameraDevices, useCameraPermission} from 'react-native-vision-camera';
+import {launchImageLibrary} from 'react-native-image-picker';
 
 interface CameraComponentProps {
   onPhotoTaken: (photoPath: string) => void;
 }
 
 const CameraComponent: React.FC<CameraComponentProps> = ({onPhotoTaken}) => {
-  const [hasPermission, setHasPermission] = useState(false);
   const [isActive] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isSimulator, setIsSimulator] = useState(false);
   const camera = useRef<Camera>(null);
   const devices = useCameraDevices();
-  const device = devices.find(d => d.position === 'back');
+  const device = devices.back;
+  const {hasPermission, requestPermission} = useCameraPermission();
 
   useEffect(() => {
-    checkCameraPermission();
-  }, []);
-
-  const checkCameraPermission = async () => {
-    try {
-      const permission = await Camera.getCameraPermissionStatus();
-      if (permission === 'granted') {
-        setHasPermission(true);
-        setIsLoading(false);
-      } else {
-        const newPermission = await Camera.requestCameraPermission();
-        setHasPermission(newPermission === 'granted');
-        setIsLoading(false);
-      }
-    } catch (error) {
-      console.error('Permission error:', error);
-      setIsLoading(false);
+    if (!hasPermission) {
+      requestPermission();
     }
-  };
+    
+    // Check if running on iOS Simulator
+    if (Platform.OS === 'ios') {
+      setIsSimulator(__DEV__ && !device);
+    }
+  }, [hasPermission, requestPermission, device]);
 
   const takePhoto = async () => {
     try {
+      if (isSimulator) {
+        // For iOS Simulator, use image picker
+        launchImageLibrary(
+          {
+            mediaType: 'photo',
+            quality: 0.8,
+            selectionLimit: 1,
+          },
+          (response) => {
+            if (response.assets && response.assets[0]) {
+              const photoPath = response.assets[0].uri;
+              if (photoPath) {
+                onPhotoTaken(photoPath);
+              }
+            }
+          }
+        );
+        return;
+      }
+      
       if (camera.current == null) throw new Error('Camera ref is null!');
       
-      const photo = await camera.current.takePhoto({});
+      const photo = await camera.current.takePhoto({
+        qualityPrioritization: 'balanced',
+        flash: 'auto',
+        enableAutoRedEyeReduction: true,
+      });
       
       onPhotoTaken(photo.path);
     } catch (error) {
@@ -55,27 +71,18 @@ const CameraComponent: React.FC<CameraComponentProps> = ({onPhotoTaken}) => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading Camera...</Text>
-      </View>
-    );
-  }
-
   if (!hasPermission) {
     return (
       <View style={styles.permissionContainer}>
         <Text style={styles.permissionText}>Camera permission is required</Text>
-        <TouchableOpacity style={styles.permissionButton} onPress={checkCameraPermission}>
+        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
           <Text style={styles.permissionButtonText}>Grant Permission</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  if (device == null) {
+  if (device == null && !isSimulator) {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>No camera device found</Text>
@@ -85,17 +92,26 @@ const CameraComponent: React.FC<CameraComponentProps> = ({onPhotoTaken}) => {
 
   return (
     <View style={styles.container}>
-      <Camera
-        ref={camera}
-        style={StyleSheet.absoluteFill}
-        device={device}
-        isActive={isActive}
-        photo={true}
-      />
+      {isSimulator ? (
+        <View style={styles.simulatorContainer}>
+          <Text style={styles.simulatorText}>iOS Simulator Mode</Text>
+          <Text style={styles.simulatorSubtext}>Tap camera button to select photo from library</Text>
+        </View>
+      ) : (
+        <Camera
+          ref={camera}
+          style={StyleSheet.absoluteFill}
+          device={device}
+          isActive={isActive}
+          photo={true}
+        />
+      )}
       
       <View style={styles.overlay}>
         <View style={styles.topBar}>
-          <Text style={styles.instruction}>Stand in full length mirror</Text>
+          <Text style={styles.instruction}>
+            {isSimulator ? 'Select a photo from library' : 'Stand in full length mirror'}
+          </Text>
         </View>
         
         <View style={styles.bottomBar}>
@@ -196,6 +212,26 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     backgroundColor: 'white',
+  },
+  simulatorContainer: {
+    flex: 1,
+    backgroundColor: '#1a1a1a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  simulatorText: {
+    color: 'white',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  simulatorSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });
 

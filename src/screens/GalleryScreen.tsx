@@ -1,8 +1,23 @@
 import React, {useState, useEffect, useCallback} from 'react';
-import {View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput} from 'react-native';
+import {
+  View, 
+  Text, 
+  StyleSheet, 
+  FlatList, 
+  TouchableOpacity, 
+  Alert, 
+  TextInput,
+  ScrollView,
+  StatusBar,
+  Platform,
+  Dimensions
+} from 'react-native';
 import {StorageService} from '../services/StorageService';
 import {Outfit} from '../types';
 import OutfitCard from '../components/OutfitCard';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../theme';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 const GalleryScreen = ({navigation}: any) => {
   const [outfits, setOutfits] = useState<Outfit[]>([]);
@@ -100,50 +115,78 @@ const GalleryScreen = ({navigation}: any) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Your Outfits</Text>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Your Outfits</Text>
+        {outfits.length > 0 && (
+          <Text style={styles.outfitCount}>{outfits.length} outfit{outfits.length !== 1 ? 's' : ''}</Text>
+        )}
+      </View>
       
       {outfits.length > 0 && (
         <>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search outfits..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
+          {/* Search Bar */}
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search outfits..."
+              placeholderTextColor={Colors.textTertiary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
           
-          <View style={styles.filterRow}>
+          {/* Filter Pills */}
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filtersContainer}
+          >
             <TouchableOpacity
-              style={[styles.filterButton, filterBy === 'all' && styles.filterButtonActive]}
+              style={[styles.filterPill, filterBy === 'all' && styles.filterPillActive]}
               onPress={() => setFilterBy('all')}>
               <Text style={[styles.filterText, filterBy === 'all' && styles.filterTextActive]}>
                 All
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.filterButton, filterBy === 'recent' && styles.filterButtonActive]}
+              style={[styles.filterPill, filterBy === 'recent' && styles.filterPillActive]}
               onPress={() => setFilterBy('recent')}>
               <Text style={[styles.filterText, filterBy === 'recent' && styles.filterTextActive]}>
                 Recent
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.filterButton, filterBy === 'most_worn' && styles.filterButtonActive]}
+              style={[styles.filterPill, filterBy === 'most_worn' && styles.filterPillActive]}
               onPress={() => setFilterBy('most_worn')}>
               <Text style={[styles.filterText, filterBy === 'most_worn' && styles.filterTextActive]}>
                 Most Worn
               </Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </>
       )}
       
+      {/* Content */}
       {outfits.length === 0 ? (
         <View style={styles.emptyState}>
+          <Text style={styles.emptyIcon}>📸</Text>
           <Text style={styles.emptyText}>No outfits yet!</Text>
-          <Text style={styles.emptySubtext}>Take your first outfit photo to get started</Text>
+          <Text style={styles.emptySubtext}>
+            Take your first outfit photo to start building your collection
+          </Text>
+          <TouchableOpacity 
+            style={styles.emptyActionButton}
+            onPress={() => navigation.navigate('Camera')}
+          >
+            <Text style={styles.emptyActionText}>Take Photo</Text>
+          </TouchableOpacity>
         </View>
       ) : filteredOutfits.length === 0 ? (
         <View style={styles.emptyState}>
+          <Text style={styles.emptyIcon}>🔍</Text>
           <Text style={styles.emptyText}>No outfits found</Text>
           <Text style={styles.emptySubtext}>Try adjusting your search or filter</Text>
         </View>
@@ -154,6 +197,8 @@ const GalleryScreen = ({navigation}: any) => {
           keyExtractor={item => item.id}
           numColumns={2}
           contentContainerStyle={styles.grid}
+          showsVerticalScrollIndicator={false}
+          columnWrapperStyle={styles.row}
         />
       )}
     </View>
